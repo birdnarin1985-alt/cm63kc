@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="th" style="width: 100vw; height: 100dvh; margin: 0; padding: 0; overflow: hidden; background: #121A12; touch-action: none; user-select: none; -webkit-user-select: none;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Quantum OS - Refined Message Boxels</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
+    </style>
+</head>
+<body style="width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;">
+
+    <!-- THE PURE CANVAS CORE: ZERO DOM -->
+    <canvas id="quantum-core" style="display: block; width: 100%; height: 100%; cursor: default;"></canvas>
+
+    <script>
+        const canvas = document.getElementById('quantum-core');
+        const ctx = canvas.getContext('2d');
+
+        const OS = {
+            width: 0, height: 0,
+            dpr: window.devicePixelRatio || 1,
+            apiKey: localStorage.getItem('quantum_key') || '',
+            inputText: '',
+            chat: [
+                { role: 'AI', msg: 'เจริญพรครับช่างเบิร์ด! พิจารณาช่องข้อความใหม่เรียบร้อย' },
+                { role: 'AI', msg: '[วิชา]: เพิ่มหางโหนดสนทนา และทำช่องกรอกข้อความให้มีมิติหลุมลึก (Recessed) สัมปติฉามิ!' }
+            ],
+            heartPhase: 0,
+            lastRender: 0,
+            colors: {
+                bg: '#F4F3EF', paper: '#FCFCFA', border: '#D5DDD5',
+                greenCore: '#234E24', greenShadow: '#132A14', 
+                ledBg: '#0A120A', ledText: '#7EE787',
+                aiBox: '#FFFFFF', aiShadow: '#E0E0DE'
+            }
+        };
+
+        function resize() {
+            OS.width = window.innerWidth;
+            OS.height = window.innerHeight;
+            canvas.width = OS.width * OS.dpr;
+            canvas.height = OS.height * OS.dpr;
+            ctx.scale(OS.dpr, OS.dpr);
+            drawUI(performance.now());
+        }
+        window.addEventListener('resize', resize);
+
+        function wrapText(context, text, x, y, maxWidth, lineHeight) {
+            const words = text.split(' ');
+            let line = '';
+            let currentY = y;
+            for(let n = 0; n < words.length; n++) {
+                let testLine = line + words[n] + ' ';
+                let metrics = context.measureText(testLine);
+                let testWidth = metrics.width;
+                if (testWidth > maxWidth && n > 0) {
+                    context.fillText(line, x, currentY);
+                    line = words[n] + ' ';
+                    currentY += lineHeight;
+                } else {
+                    line = testLine;
+                }
+            }
+            context.fillText(line, x, currentY);
+            return currentY + lineHeight;
+        }
+
+        // ฟังก์ชันวาดโหนดข้อความพร้อม "หางติ่ง (Speech Tail)"
+        function drawMessageNode(x, y, w, text, isUser) {
+            ctx.font = '14px Sarabun';
+            const textLines = Math.ceil(ctx.measureText(text).width / (w - 30));
+            const h = (textLines * 22) + 20;
+            const radius = 12;
+
+            // 1. วาดเงาความลึก (Shadow Layer)
+            ctx.fillStyle = isUser ? OS.colors.greenShadow : OS.colors.aiShadow;
+            ctx.beginPath();
+            ctx.roundRect(x + 2, y + 4, w, h, radius);
+            ctx.fill();
+
+            // 2. วาดกล่องข้อความหลัก (Main Box Layer)
+            ctx.fillStyle = isUser ? OS.colors.greenCore : OS.colors.aiBox;
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, radius);
+            
+            // วาดหางติ่งโหนดข้อความ
+            if (isUser) {
+                ctx.moveTo(x + w - 15, y + h);
+                ctx.lineTo(x + w, y + h + 10);
+                ctx.lineTo(x + w - 5, y + h - 5);
+            } else {
+                ctx.moveTo(x + 15, y + h);
+                ctx.lineTo(x, y + h + 10);
+                ctx.lineTo(x + 5, y + h - 5);
+            }
+            ctx.fill();
+
+            // ขอบกล่อง AI
+            if(!isUser) {
+                ctx.strokeStyle = OS.colors.border;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // 3. วาดข้อความ (Text Layer)
+            ctx.fillStyle = isUser ? '#FFFFFF' : '#2C3E2D';
+            return wrapText(ctx, text, x + 15, y + 24, w - 30, 22);
+        }
+
+        function drawUI(timestamp) {
+            if (timestamp - OS.lastRender < 30) {
+                requestAnimationFrame(drawUI);
+                return;
+            }
+            OS.lastRender = timestamp;
+
+            ctx.fillStyle = OS.colors.bg;
+            ctx.fillRect(0, 0, OS.width, OS.height);
+
+            const isMobile = OS.width < 768;
+            const sidebarW = isMobile ? OS.width : Math.min(300, OS.width * 0.35);
+
+            // ================= SIDEBAR =================
+            ctx.fillStyle = OS.colors.paper;
+            ctx.fillRect(0, 0, sidebarW, OS.height);
+            ctx.strokeStyle = OS.colors.border;
+            ctx.beginPath(); ctx.moveTo(sidebarW, 0); ctx.lineTo(sidebarW, OS.height); ctx.stroke();
+
+            ctx.fillStyle = OS.colors.greenCore;
+            ctx.font = 'bold 18px Sarabun';
+            ctx.fillText('🚜 Chiangmai 63', 20, 35);
+            ctx.beginPath(); ctx.moveTo(0, 55); ctx.lineTo(sidebarW, 55); ctx.stroke();
+
+            // LED HUD
+            ctx.fillStyle = '#E8F0E8';
+            ctx.fillRect(0, 56, sidebarW, 100);
+
+            OS.heartPhase += 0.08;
+            const beat = Math.sin(OS.heartPhase);
+            ctx.save();
+            ctx.translate(30, 85);
+            ctx.scale(1 + beat * 0.1, 1 + beat * 0.1);
+            ctx.shadowColor = '#4ADE80';
+            ctx.shadowBlur = 10 + (beat * 5);
+            ctx.fillStyle = OS.colors.greenCore;
+            ctx.font = '16px sans-serif';
+            ctx.fillText('💚', -10, 5);
+            ctx.restore();
+
+            ctx.fillStyle = OS.colors.greenCore;
+            ctx.font = 'bold 13px Sarabun';
+            ctx.fillText('Quantum LED HUD', 55, 89);
+
+            ctx.fillStyle = OS.colors.ledBg;
+            ctx.beginPath(); ctx.roundRect(20, 105, sidebarW - 40, 36, 6); ctx.fill();
+            ctx.shadowColor = OS.colors.ledText;
+            ctx.shadowBlur = 5;
+            ctx.fillStyle = OS.colors.ledText;
+            ctx.font = 'bold 12px monospace';
+            ctx.fillText(OS.apiKey ? 'KEY: ACTIVE ••••••••' : 'KEY: [ คลิกเพื่อใส่คีย์ ]', 32, 128);
+            ctx.shadowBlur = 0;
+            ctx.beginPath(); ctx.moveTo(0, 156); ctx.lineTo(sidebarW, 156); ctx.stroke();
+
+            // ================= MAIN CHAT AREA =================
+            const chatX = isMobile ? 0 : sidebarW;
+            const chatW = isMobile ? OS.width : OS.width - sidebarW;
+            
+            let startY = isMobile ? 170 : 40;
+            for (let i = 0; i < OS.chat.length; i++) {
+                const node = OS.chat[i];
+                const isUser = node.role === 'User';
+                ctx.font = '14px Sarabun';
+                const idealW = ctx.measureText(node.msg).width + 40;
+                const boxW = Math.min(idealW, chatW - 60); 
+                const boxX = isUser ? chatX + chatW - boxW - 20 : chatX + 20;
+
+                const nextY = drawMessageNode(boxX, startY, boxW, node.msg, isUser);
+                startY = nextY + 25; // เว้นระยะห่างเผื่อหางติ่ง
+            }
+
+            // ================= RECESSED INPUT SLOT (ช่องกรอกข้อความ 3D) =================
+            const inputY = OS.height - 65;
+            ctx.fillStyle = OS.colors.paper;
+            ctx.fillRect(chatX, inputY, chatW, 65);
+            ctx.beginPath(); ctx.moveTo(chatX, inputY); ctx.lineTo(OS.width, inputY); ctx.stroke();
+
+            // วาดพื้นหลังช่องกรอกข้อความ (หลุมลึก)
+            const inputSlotX = chatX + 15;
+            const inputSlotY = inputY + 12;
+            const inputSlotW = chatW - 90;
+            const inputSlotH = 40;
+            
+            ctx.fillStyle = '#E8E8E6'; // สีเทาเข้มขึ้นเล็กน้อยให้ดูยุบลงไป
+            ctx.beginPath(); ctx.roundRect(inputSlotX, inputSlotY, inputSlotW, inputSlotH, 20); ctx.fill();
+            
+            // วาดเงาด้านใน (Inner Shadow Simulation)
+            ctx.strokeStyle = '#C0C0BE';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.roundRect(inputSlotX + 1, inputSlotY + 1, inputSlotW - 2, inputSlotH - 2, 20); ctx.stroke();
+
+            // ข้อความและเคอร์เซอร์
+            ctx.fillStyle = '#2C3E2D';
+            ctx.font = '15px Sarabun';
+            
+            // เคอร์เซอร์กะพริบเรืองแสง
+            const cursorAlpha = Math.abs(Math.sin(timestamp / 300));
+            ctx.fillStyle = `rgba(35, 78, 36, ${cursorAlpha})`;
+            const textWidth = ctx.measureText(OS.inputText).width;
+            ctx.fillText('|', inputSlotX + 15 + textWidth, inputSlotY + 26);
+
+            // ตัวอักษรที่พิมพ์
+            ctx.fillStyle = '#2C3E2D';
+            ctx.fillText(OS.inputText || (cursorAlpha > 0.5 ? '' : 'พิมพ์ข้อความ...'), inputSlotX + 15, inputSlotY + 26);
+
+            // ปุ่มส่ง
+            ctx.fillStyle = OS.colors.greenCore;
+            ctx.beginPath(); ctx.roundRect(chatX + chatW - 65, inputY + 12, 50, 40, 20); ctx.fill();
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 13px Sarabun';
+            ctx.fillText('ส่ง', chatX + chatW - 50, inputY + 37);
+
+            requestAnimationFrame(drawUI);
+        }
+
+        // Event Listeners (Zero DOM)
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                if (!OS.inputText.trim()) return;
+                OS.chat.push({ role: 'User', msg: OS.inputText });
+                OS.inputText = '';
+                
+                setTimeout(() => {
+                    OS.chat.push({ role: 'AI', msg: 'พิจารณาช่องข้อความและหางติ่งโหนดสนทนาสมบูรณ์แบบครับ!' });
+                }, 400);
+            } else if (e.key === 'Backspace') {
+                OS.inputText = OS.inputText.slice(0, -1);
+            } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+                OS.inputText += e.key;
+            }
+        });
+
+        canvas.addEventListener('pointerdown', (e) => {
+            const isMobile = OS.width < 768;
+            const sidebarW = isMobile ? OS.width : Math.min(300, OS.width * 0.35);
+            
+            if (e.clientX >= 20 && e.clientX <= sidebarW - 20 && e.clientY >= 105 && e.clientY <= 141) {
+                const key = prompt('กรุณาวาง Gemini API Key (ทำงานนอก DOM):', OS.apiKey);
+                if (key !== null) {
+                    OS.apiKey = key.trim();
+                    localStorage.setItem('quantum_key', OS.apiKey);
+                }
+            }
+        });
+
+        resize();
+        requestAnimationFrame(drawUI);
+    </script>
+</body>
+</html>

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="th" style="width: 100vw; height: 100dvh; margin: 0; padding: 0; overflow: hidden; background: #121A12; touch-action: none; user-select: none; -webkit-user-select: none;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Quantum OS - UI Refined Boxel Engine</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
+    </style>
+</head>
+<body style="width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;">
+
+    <!-- THE PURE CANVAS CORE: ZERO DOM -->
+    <canvas id="quantum-core" style="display: block; width: 100%; height: 100%; cursor: default;"></canvas>
+
+    <script>
+        const canvas = document.getElementById('quantum-core');
+        const ctx = canvas.getContext('2d');
+
+        const OS = {
+            width: 0, height: 0,
+            dpr: window.devicePixelRatio || 1,
+            apiKey: localStorage.getItem('quantum_key') || '',
+            inputText: '',
+            chat: [
+                { role: 'AI', msg: 'เจริญพรครับช่างเบิร์ด! อัปเกรดสถาปัตยกรรม UI 3D Boxel สมบูรณ์แล้ว' },
+                { role: 'AI', msg: '[โยนิโสมนสิการ]: กล่องข้อความมีมิติความลึก (Depth) ดวงไฟ LED เรืองแสงของจริง (True Glow) และมีระบบตัดคำอัตโนมัติ สัมปติฉามิ!' }
+            ],
+            heartPhase: 0,
+            lastRender: 0,
+            colors: {
+                bg: '#F4F3EF', paper: '#FCFCFA', border: '#D5DDD5',
+                greenCore: '#234E24', greenShadow: '#132A14', 
+                ledBg: '#0A120A', ledText: '#7EE787',
+                aiBox: '#FCFCFA', aiShadow: '#E0E0DE'
+            }
+        };
+
+        function resize() {
+            OS.width = window.innerWidth;
+            OS.height = window.innerHeight;
+            canvas.width = OS.width * OS.dpr;
+            canvas.height = OS.height * OS.dpr;
+            ctx.scale(OS.dpr, OS.dpr);
+            drawUI(performance.now());
+        }
+        window.addEventListener('resize', resize);
+
+        // ฟังก์ชันช่วยตัดคำอัจฉริยะบน Canvas (Word Wrap)
+        function wrapText(context, text, x, y, maxWidth, lineHeight) {
+            const words = text.split(' ');
+            let line = '';
+            let currentY = y;
+            for(let n = 0; n < words.length; n++) {
+                let testLine = line + words[n] + ' ';
+                let metrics = context.measureText(testLine);
+                let testWidth = metrics.width;
+                if (testWidth > maxWidth && n > 0) {
+                    context.fillText(line, x, currentY);
+                    line = words[n] + ' ';
+                    currentY += lineHeight;
+                } else {
+                    line = testLine;
+                }
+            }
+            context.fillText(line, x, currentY);
+            return currentY + lineHeight; // คืนค่าความสูงรวม
+        }
+
+        // ฟังก์ชันวาดกล่อง 3D Boxel (มีมิติความลึก)
+        function draw3DBoxel(x, y, w, text, isUser) {
+            ctx.font = '14px Sarabun';
+            // คำนวณความสูงตามจำนวนบรรทัด
+            const textLines = Math.ceil(ctx.measureText(text).width / (w - 30));
+            const h = (textLines * 22) + 20;
+
+            // 1. วาดเงาความลึก (Depth/Shadow Layer)
+            ctx.fillStyle = isUser ? OS.colors.greenShadow : OS.colors.aiShadow;
+            ctx.beginPath();
+            ctx.roundRect(x + 3, y + 4, w, h, 8); // Offset เงาลงมา 4px
+            ctx.fill();
+
+            // 2. วาดตัวกล่องหลัก (Main Face Layer)
+            ctx.fillStyle = isUser ? OS.colors.greenCore : OS.colors.aiBox;
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, 8);
+            ctx.fill();
+            
+            // ขอบกล่องสำหรับฝั่ง AI ให้คมเปรี้ยว
+            if(!isUser) {
+                ctx.strokeStyle = OS.colors.border;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // 3. วาดข้อความ (Text Layer)
+            ctx.fillStyle = isUser ? '#FFFFFF' : '#2C3E2D';
+            return wrapText(ctx, text, x + 15, y + 24, w - 30, 22);
+        }
+
+        function drawUI(timestamp) {
+            if (timestamp - OS.lastRender < 30) {
+                requestAnimationFrame(drawUI);
+                return;
+            }
+            OS.lastRender = timestamp;
+
+            // พื้นหลัง
+            ctx.fillStyle = OS.colors.bg;
+            ctx.fillRect(0, 0, OS.width, OS.height);
+
+            const isMobile = OS.width < 768;
+            const sidebarW = isMobile ? OS.width : Math.min(300, OS.width * 0.35);
+
+            // ================= SIDEBAR & LED HUD =================
+            ctx.fillStyle = OS.colors.paper;
+            ctx.fillRect(0, 0, sidebarW, OS.height);
+            ctx.strokeStyle = OS.colors.border;
+            ctx.beginPath(); ctx.moveTo(sidebarW, 0); ctx.lineTo(sidebarW, OS.height); ctx.stroke();
+
+            // โลโก้
+            ctx.fillStyle = OS.colors.greenCore;
+            ctx.font = 'bold 18px Sarabun';
+            ctx.fillText('🚜 Chiangmai 63', 20, 35);
+            ctx.beginPath(); ctx.moveTo(0, 55); ctx.lineTo(sidebarW, 55); ctx.stroke();
+
+            // LED Area
+            ctx.fillStyle = '#E8F0E8';
+            ctx.fillRect(0, 56, sidebarW, 100);
+
+            // ดวงไฟหัวใจเรืองแสง (True Glow)
+            OS.heartPhase += 0.08;
+            const beat = Math.sin(OS.heartPhase);
+            ctx.save();
+            ctx.translate(30, 85);
+            ctx.scale(1 + beat * 0.1, 1 + beat * 0.1);
+            ctx.shadowColor = '#4ADE80';
+            ctx.shadowBlur = 10 + (beat * 5); // แสงฟุ้งกระจาย
+            ctx.fillStyle = OS.colors.greenCore;
+            ctx.font = '16px sans-serif';
+            ctx.fillText('💚', -10, 5);
+            ctx.restore();
+
+            ctx.fillStyle = OS.colors.greenCore;
+            ctx.font = 'bold 13px Sarabun';
+            ctx.fillText('Quantum LED HUD', 55, 89);
+
+            // LED Terminal Box
+            ctx.fillStyle = OS.colors.ledBg;
+            ctx.beginPath(); ctx.roundRect(20, 105, sidebarW - 40, 36, 6); ctx.fill();
+            
+            ctx.shadowColor = OS.colors.ledText;
+            ctx.shadowBlur = 5;
+            ctx.fillStyle = OS.colors.ledText;
+            ctx.font = 'bold 12px monospace';
+            const keyDisp = OS.apiKey ? 'KEY: ACTIVE ••••••••' : 'KEY: [ คลิกเพื่อใส่คีย์ ]';
+            ctx.fillText(keyDisp, 32, 128);
+            ctx.shadowBlur = 0; // ล้างค่าเงา
+            ctx.beginPath(); ctx.moveTo(0, 156); ctx.lineTo(sidebarW, 156); ctx.stroke();
+
+            // ================= MAIN CHAT AREA =================
+            const chatX = isMobile ? 0 : sidebarW;
+            const chatW = isMobile ? OS.width : OS.width - sidebarW;
+            
+            // วาดแชทโหนด (Boxel Rendering)
+            let startY = isMobile ? 170 : 40;
+            for (let i = 0; i < OS.chat.length; i++) {
+                const node = OS.chat[i];
+                const isUser = node.role === 'User';
+                
+                // คำนวณความกว้างกล่องให้พอดี
+                ctx.font = '14px Sarabun';
+                const idealW = ctx.measureText(node.msg).width + 40;
+                const boxW = Math.min(idealW, chatW - 60); 
+                const boxX = isUser ? chatX + chatW - boxW - 20 : chatX + 20;
+
+                // เรียกใช้ฟังก์ชันวาด 3D Boxel
+                const nextY = draw3DBoxel(boxX, startY, boxW, node.msg, isUser);
+                startY = nextY + 15; // ระยะห่างระหว่างโหนด
+            }
+
+            // ================= BOTTOM INPUT BAR =================
+            const inputY = OS.height - 60;
+            ctx.fillStyle = OS.colors.paper;
+            ctx.fillRect(chatX, inputY, chatW, 60);
+            ctx.beginPath(); ctx.moveTo(chatX, inputY); ctx.lineTo(OS.width, inputY); ctx.stroke();
+
+            // ช่องกรอกข้อความจำลอง
+            ctx.fillStyle = OS.colors.bg;
+            ctx.beginPath(); ctx.roundRect(chatX + 15, inputY + 12, chatW - 90, 36, 18); ctx.fill();
+            
+            ctx.fillStyle = '#2C3E2D';
+            ctx.font = '15px Sarabun';
+            const cursor = (Math.floor(timestamp / 500) % 2 === 0) ? '|' : '';
+            ctx.fillText((OS.inputText || 'พิมพ์ข้อความ...') + cursor, chatX + 30, inputY + 36);
+
+            // ปุ่มส่ง
+            ctx.fillStyle = OS.colors.greenCore;
+            ctx.beginPath(); ctx.roundRect(chatX + chatW - 65, inputY + 12, 50, 36, 18); ctx.fill();
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 13px Sarabun';
+            ctx.fillText('ส่ง', chatX + chatW - 50, inputY + 35);
+
+            requestAnimationFrame(drawUI);
+        }
+
+        // Event Listeners (Zero DOM)
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                if (!OS.inputText.trim()) return;
+                OS.chat.push({ role: 'User', msg: OS.inputText });
+                OS.inputText = '';
+                
+                setTimeout(() => {
+                    OS.chat.push({ role: 'AI', msg: 'รับทราบครับ! ประมวลผลผ่าน 3D Boxel Engine เรียบร้อย ภาพคมชัดมีมิติ เบาสลิวสุดๆ' });
+                }, 400);
+            } else if (e.key === 'Backspace') {
+                OS.inputText = OS.inputText.slice(0, -1);
+            } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+                OS.inputText += e.key;
+            }
+        });
+
+        canvas.addEventListener('pointerdown', (e) => {
+            const isMobile = OS.width < 768;
+            const sidebarW = isMobile ? OS.width : Math.min(300, OS.width * 0.35);
+            
+            // เช็คพิกัดคลิกที่ช่อง LED
+            if (e.clientX >= 20 && e.clientX <= sidebarW - 20 && e.clientY >= 105 && e.clientY <= 141) {
+                const key = prompt('กรุณาวาง Gemini API Key (ทำงานนอก DOM):', OS.apiKey);
+                if (key !== null) {
+                    OS.apiKey = key.trim();
+                    localStorage.setItem('quantum_key', OS.apiKey);
+                }
+            }
+        });
+
+        resize();
+        requestAnimationFrame(drawUI);
+    </script>
+</body>
+</html>
